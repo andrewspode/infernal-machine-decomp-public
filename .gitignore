@@ -1,0 +1,37 @@
+# Everything Scripts/setup_toolchain.py installs or the build generates.
+# No trailing slashes: a checkout may symlink these from another one.
+/build
+/build.ninja
+/objdiff.json
+/compile_commands.json
+/.ninja_log
+/.ninja_lock
+/.ninja_deps
+/.venv
+/orig
+/tools/downloads
+/tools/msvc600-8168
+/tools/msvc500sp3-7303
+/tools/intel-cc-4.0
+/tools/msvc420
+/tools/masm613
+/Libs/external/DirectX61c/include
+/Libs/external/DirectX61c/lib
+/Libs/j3dcore/j3d.h
+
+# The original executable and anything carved from it: never commit these.
+*.exe
+*.obj
+*.lib
+*.dll
+*.pdb
+
+# MSVC scratch files left behind by an interrupted compile.
+/a[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*
+
+# Python and editors
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+.vs/

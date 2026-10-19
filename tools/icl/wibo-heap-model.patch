@@ -1,0 +1,598 @@
+wibo heap model: WIBO_HEAP_MODEL=nt serves HeapCreate'd heaps with a model of the Windows NT heap
+(infernal-machine-decomp, lane tool-iclheap, 2026-10-03; applies to decompals/wibo 1.1.0, commit
+b80feaae19c1b0b0759d9abf2b6afabc48957c3d).
+
+Why: Intel C/C++ 4.0 (mcpcom.exe 99100, https://github.com/andrewspode/intel-cc-4.0-setup) sorts the
+operands of commutative expressions by the address of their symbol records, which it allocates in 64 KiB
+pool chunks from its static VC5 CRT's HeapAlloc. Under wibo's mimalloc arena (0x6c000000) every record
+address exceeds 2^30 and the generated code differs from what the compiler produces on Windows; with this
+mode wibo reproduces the object a native Windows 11 compile gives (and what a model of the NT 4.0 heap
+gives). Details: docs/crt.md "A principled 1999 heap model" in
+https://github.com/andrewspode/infernal-machine-decomp (or this repository's docs/crt.md).
+
+What it does: with WIBO_HEAP_MODEL=nt in the environment, every heap created by HeapCreate gets an NT
+backend allocator (src/ntheap.cpp): 8-byte HEAP_ENTRY headers and granularity, FreeLists[1..127] (oldest
+first) and a size-ordered FreeLists[0], split at the front, coalescing, page-wise commit of 1 MiB segments
+reserved bottom-up through wibo's VirtualAlloc, decommit of large free blocks, and VirtualAlloc'd blocks over
+0x7f000 bytes. The process heap and every program run without the variable are unchanged.
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 324eb12..3493a96 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -231,6 +231,7 @@ add_executable(wibo
+     src/files.cpp
+     src/handles.cpp
+     src/heap.cpp
++    src/ntheap.cpp
+     src/loader.cpp
+     src/main.cpp
+     src/modules.cpp
+diff --git a/dll/kernel32/heapapi.cpp b/dll/kernel32/heapapi.cpp
+index a08a595..c1df34f 100644
+--- a/dll/kernel32/heapapi.cpp
++++ b/dll/kernel32/heapapi.cpp
+@@ -1,5 +1,6 @@
+ #include "heapapi.h"
+ #include "heap.h"
++#include "ntheap.h"
+ 
+ #include "common.h"
+ #include "context.h"
+@@ -48,6 +49,13 @@ LPVOID heapAllocFromRecord(HeapObject *record, DWORD dwFlags, SIZE_T dwBytes) {
+ 	}
+ 	const bool zeroMemory = (dwFlags & HEAP_ZERO_MEMORY) != 0;
+ 	const SIZE_T requestSize = std::max<SIZE_T>(1, dwBytes);
++	if (record->ntHeap) {
++		void *mem = record->ntHeap->alloc(requestSize, zeroMemory);
++		if (!mem) {
++			kernel32::setLastError(ERROR_NOT_ENOUGH_MEMORY);
++		}
++		return mem;
++	}
+ 	void *mem =
+ 		record->heap ? record->heap->malloc(requestSize, zeroMemory) : wibo::heap::guestMalloc(requestSize, zeroMemory);
+ 	if (!mem) {
+@@ -83,6 +91,9 @@ HANDLE WINAPI HeapCreate(DWORD flOptions, SIZE_T dwInitialSize, SIZE_T dwMaximum
+ 	record->createFlags = flOptions;
+ 	record->initialSize = dwInitialSize;
+ 	record->maximumSize = dwMaximumSize;
++	if (wibo::ntHeapModelEnabled()) {
++		record->ntHeap = std::make_unique<wibo::NtHeap>(flOptions, dwInitialSize, dwMaximumSize);
++	}
+ 	return wibo::handles().alloc(std::move(record), 0, 0);
+ }
+ 
+@@ -94,6 +105,7 @@ BOOL WINAPI HeapDestroy(HANDLE hHeap) {
+ 		setLastError(ERROR_INVALID_HANDLE);
+ 		return FALSE;
+ 	}
++	record->ntHeap.reset();
+ 	record->heap.reset();
+ 	wibo::handles().release(hHeap);
+ 	return TRUE;
+@@ -171,6 +183,14 @@ LPVOID WINAPI HeapReAlloc(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem, SIZE_T dwBy
+ 	}
+ 	const bool inplaceOnly = (dwFlags & HEAP_REALLOC_IN_PLACE_ONLY) != 0;
+ 	const bool zeroMemory = (dwFlags & HEAP_ZERO_MEMORY) != 0;
++	if (record->ntHeap) {
++		void *ret = record->ntHeap->realloc(lpMem, dwBytes, zeroMemory, inplaceOnly);
++		if (!ret) {
++			setLastError(ERROR_NOT_ENOUGH_MEMORY);
++		}
++		VERBOSE_LOG("-> %p (nt)\n", ret);
++		return ret;
++	}
+ 	if (dwBytes == 0) {
+ 		if (!inplaceOnly) {
+ 			wibo::heap::guestFree(lpMem);
+@@ -218,6 +238,9 @@ SIZE_T WINAPI HeapSize(HANDLE hHeap, DWORD dwFlags, LPCVOID lpMem) {
+ 		setLastError(ERROR_INVALID_PARAMETER);
+ 		return static_cast<SIZE_T>(-1);
+ 	}
++	if (record->ntHeap) {
++		return record->ntHeap->size(lpMem);
++	}
+ 	return static_cast<SIZE_T>(wibo::heap::guestSize(lpMem));
+ }
+ 
+@@ -234,7 +257,9 @@ BOOL WINAPI HeapFree(HANDLE hHeap, DWORD dwFlags, LPVOID lpMem) {
+ 		setLastError(ERROR_INVALID_HANDLE);
+ 		return FALSE;
+ 	}
+-	bool ret = record->heap ? record->heap->free(lpMem) : wibo::heap::guestFree(lpMem);
++	bool ret = record->ntHeap ? record->ntHeap->free(lpMem)
++			   : record->heap  ? record->heap->free(lpMem)
++							   : wibo::heap::guestFree(lpMem);
+ 	if (!ret) {
+ 		VERBOSE_LOG("-> ERROR_INVALID_PARAMETER (not owned)\n");
+ 		setLastError(ERROR_INVALID_PARAMETER);
+diff --git a/dll/kernel32/internal.h b/dll/kernel32/internal.h
+index 947ec9d..bfd3ee0 100644
+--- a/dll/kernel32/internal.h
++++ b/dll/kernel32/internal.h
+@@ -3,9 +3,11 @@
+ #include "common.h"
+ #include "handles.h"
+ #include "heap.h"
++#include "ntheap.h"
+ #include "types.h"
+ 
+ #include <condition_variable>
++#include <memory>
+ #include <optional>
+ #include <pthread.h>
+ 
+@@ -155,6 +157,7 @@ struct HeapObject : public ObjectBase {
+ 	static constexpr ObjectType kType = ObjectType::Heap;
+ 
+ 	std::optional<wibo::Heap> heap;
++	std::unique_ptr<wibo::NtHeap> ntHeap; // WIBO_HEAP_MODEL=nt
+ 	const pthread_t owner;
+ 	DWORD createFlags = 0;
+ 	SIZE_T initialSize = 0;
+diff --git a/src/ntheap.cpp b/src/ntheap.cpp
+new file mode 100644
+index 0000000..b5d2145
+--- /dev/null
++++ b/src/ntheap.cpp
+@@ -0,0 +1,379 @@
++// Windows NT heap model for HeapCreate'd heaps (WIBO_HEAP_MODEL=nt); see ntheap.h.
++//
++// Parameters are the documented NT defaults:
++//  - HEAP_ENTRY is 8 bytes and the allocation granularity is 8 bytes on x86;
++//  - FreeLists[1..127] hold free blocks of exactly that many 8-byte units, oldest first; FreeLists[0] holds the
++//    larger ones sorted by size, a newly freed block going before blocks of equal size;
++//  - an allocation takes the exact list, else the next non-empty dedicated list, else the first adequate entry of
++//    FreeLists[0]; it uses the front of the block and returns a remainder of at least 16 bytes to the lists;
++//  - when nothing fits, the first uncommitted range (segment order, then address order) that is large enough is
++//    committed page by page; when no segment has room a new segment of SegmentReserve (1 MiB, the usual
++//    SizeOfHeapReserve) is reserved bottom-up through VirtualAlloc;
++//  - blocks larger than the VirtualMemoryThreshold (0x7f000 bytes) of a growable heap are VirtualAlloc'd with a
++//    0x20-byte HEAP_VIRTUAL_ALLOC_ENTRY header;
++//  - a free block of at least 0x1000 bytes is decommitted (whole pages) once the heap holds 0x10000 free bytes
++//    (HeapDeCommitFreeBlockThreshold / HeapDeCommitTotalFreeThreshold).
++// mcpcom's CRT heap (HEAP_NO_SERIALIZE) never has a front end (lookaside/LFH) on any NT version.
++
++#include "ntheap.h"
++
++#include "common.h"
++#include "heap.h"
++
++#include <cstdlib>
++#include <cstring>
++
++namespace wibo {
++
++namespace {
++constexpr uintptr_t kEntry = 8;
++constexpr uintptr_t kPage = 0x1000;
++constexpr uintptr_t kMinFree = 16;
++constexpr uintptr_t kFirstSegmentOffset = 0x580; // HEAP + HEAP_SEGMENT + FreeLists in the first segment
++constexpr uintptr_t kSegmentOffset = 0x40;       // HEAP_SEGMENT in later segments
++constexpr uintptr_t kVirtualThreshold = 0x7f000;
++constexpr uintptr_t kVirtualHeader = 0x20;
++constexpr uintptr_t kDecommitBlock = 0x1000;
++constexpr uintptr_t kDecommitTotal = 0x10000;
++constexpr uintptr_t kDefaultReserve = 0x100000;
++
++inline uintptr_t pageUp(uintptr_t v) { return (v + kPage - 1) & ~(kPage - 1); }
++inline uintptr_t pageDown(uintptr_t v) { return v & ~(kPage - 1); }
++
++bool commitRange(uintptr_t addr, uintptr_t size) {
++	void *base = reinterpret_cast<void *>(addr);
++	std::size_t len = size;
++	return heap::virtualAlloc(&base, &len, MEM_COMMIT, PAGE_READWRITE) == heap::VmStatus::Success;
++}
++} // namespace
++
++bool ntHeapModelEnabled() {
++	static const bool enabled = [] {
++		const char *v = std::getenv("WIBO_HEAP_MODEL");
++		return v && std::strcmp(v, "nt") == 0;
++	}();
++	return enabled;
++}
++
++NtHeap::NtHeap(DWORD flags, SIZE_T initialSize, SIZE_T maximumSize) {
++	(void)flags;
++	growable_ = maximumSize == 0;
++	segmentReserve_ = growable_ ? kDefaultReserve : ((maximumSize + 0xffff) & ~uintptr_t(0xffff));
++	if (segmentReserve_ < kDefaultReserve && growable_) {
++		segmentReserve_ = kDefaultReserve;
++	}
++	if (newSegment(segmentReserve_, kFirstSegmentOffset)) {
++		uintptr_t want = pageUp(segments_[0].base + (initialSize > kPage ? initialSize : kPage));
++		Segment &s = segments_[0];
++		if (!s.uncommitted.empty() && want > s.uncommitted.begin()->first) {
++			extend(want - s.uncommitted.begin()->first);
++		}
++	}
++}
++
++NtHeap::~NtHeap() {
++	for (auto &u : used_) {
++		if (u.second.virtualBlock) {
++			heap::virtualFree(reinterpret_cast<void *>(u.second.block), 0, MEM_RELEASE);
++		}
++	}
++	for (auto &s : segments_) {
++		heap::virtualFree(reinterpret_cast<void *>(s.base), 0, MEM_RELEASE);
++	}
++}
++
++int NtHeap::segmentOf(uintptr_t addr) const {
++	for (size_t i = 0; i < segments_.size(); ++i) {
++		if (addr >= segments_[i].base && addr < segments_[i].end) {
++			return static_cast<int>(i);
++		}
++	}
++	return -1;
++}
++
++bool NtHeap::newSegment(uintptr_t reserve, uintptr_t firstBlockOffset) {
++	void *base = nullptr;
++	std::size_t len = reserve;
++	if (heap::virtualAlloc(&base, &len, MEM_RESERVE, PAGE_READWRITE) != heap::VmStatus::Success) {
++		return false;
++	}
++	Segment s;
++	s.base = reinterpret_cast<uintptr_t>(base);
++	s.end = s.base + len;
++	uintptr_t committed = pageUp(s.base + firstBlockOffset);
++	if (!commitRange(s.base, committed - s.base)) {
++		heap::virtualFree(base, 0, MEM_RELEASE);
++		return false;
++	}
++	if (committed < s.end) {
++		s.uncommitted[committed] = s.end;
++	}
++	segments_.push_back(std::move(s));
++	if (committed > segments_.back().base + firstBlockOffset) {
++		insertFree(segments_.back().base + firstBlockOffset, committed - (segments_.back().base + firstBlockOffset),
++				   false, false);
++	}
++	DEBUG_LOG("NtHeap: segment %p..%p\n", base, reinterpret_cast<void *>(s.end));
++	return true;
++}
++
++void NtHeap::removeFree(std::map<uintptr_t, FreeBlock>::iterator it) {
++	totalFree_ -= it->second.size;
++	free_.erase(it);
++}
++
++void NtHeap::insertFree(uintptr_t addr, uintptr_t size, bool coalesce, bool mayDecommit) {
++	if (coalesce) {
++		int seg = segmentOf(addr);
++		auto next = free_.find(addr + size);
++		if (next != free_.end() && segmentOf(next->first) == seg) {
++			size += next->second.size;
++			removeFree(next);
++		}
++		auto prev = free_.lower_bound(addr);
++		if (prev != free_.begin()) {
++			--prev;
++			if (prev->first + prev->second.size == addr && segmentOf(prev->first) == seg) {
++				addr = prev->first;
++				size += prev->second.size;
++				removeFree(prev);
++			}
++		}
++	}
++	if (mayDecommit && size >= kDecommitBlock && totalFree_ + size >= kDecommitTotal) {
++		uintptr_t end = addr + size;
++		uintptr_t db = pageUp(addr), de = pageDown(end);
++		if (db != addr && db - addr < kMinFree) {
++			db += kPage;
++		}
++		if (de != end && end - de < kMinFree) {
++			de -= kPage;
++		}
++		if (de > db) {
++			int seg = segmentOf(addr);
++			if (db > addr) {
++				insertFree(addr, db - addr, false, false);
++			}
++			if (end > de) {
++				insertFree(de, end - de, false, false);
++			}
++			heap::virtualFree(reinterpret_cast<void *>(db), de - db, MEM_DECOMMIT);
++			auto &ucr = segments_[seg].uncommitted;
++			uintptr_t a = db, e = de;
++			auto it = ucr.find(e);
++			if (it != ucr.end()) {
++				e = it->second;
++				ucr.erase(it);
++			}
++			it = ucr.lower_bound(a);
++			if (it != ucr.begin()) {
++				auto p = std::prev(it);
++				if (p->second == a) {
++					a = p->first;
++					ucr.erase(p);
++				}
++			}
++			ucr[a] = e;
++			return;
++		}
++	}
++	free_[addr] = FreeBlock{size, ++seq_};
++	totalFree_ += size;
++}
++
++bool NtHeap::extend(uintptr_t bytes) {
++	uintptr_t need = pageUp(bytes);
++	for (auto &s : segments_) {
++		for (auto it = s.uncommitted.begin(); it != s.uncommitted.end(); ++it) {
++			if (it->second - it->first < need) {
++				continue;
++			}
++			uintptr_t a = it->first, e = it->second;
++			if (!commitRange(a, need)) {
++				return false;
++			}
++			s.uncommitted.erase(it);
++			if (a + need < e) {
++				s.uncommitted[a + need] = e;
++			}
++			insertFree(a, need, true, false);
++			return true;
++		}
++	}
++	return false;
++}
++
++std::map<uintptr_t, NtHeap::FreeBlock>::iterator NtHeap::pick(uintptr_t bytes) {
++	auto best = free_.end();
++	uintptr_t units = bytes / kEntry;
++	if (units < 128) {
++		for (auto it = free_.begin(); it != free_.end(); ++it) {
++			uintptr_t u = it->second.size / kEntry;
++			if (u < units || u >= 128) {
++				continue;
++			}
++			if (best == free_.end() || u < best->second.size / kEntry ||
++				(u == best->second.size / kEntry && it->second.seq < best->second.seq)) {
++				best = it;
++			}
++		}
++		if (best != free_.end()) {
++			return best;
++		}
++	}
++	for (auto it = free_.begin(); it != free_.end(); ++it) {
++		if (it->second.size / kEntry < 128 || it->second.size < bytes) {
++			continue;
++		}
++		if (best == free_.end() || it->second.size < best->second.size ||
++			(it->second.size == best->second.size && it->second.seq > best->second.seq)) {
++			best = it;
++		}
++	}
++	return best;
++}
++
++uintptr_t NtHeap::blockSize(SIZE_T request) const {
++	uintptr_t s = ((static_cast<uintptr_t>(request) + kEntry - 1) & ~(kEntry - 1)) + kEntry;
++	return s < kMinFree ? kMinFree : s;
++}
++
++void *NtHeap::alloc(SIZE_T request, bool zero) {
++	std::lock_guard lk(mutex_);
++	if (request == 0) {
++		request = 1;
++	}
++	uintptr_t s = blockSize(request);
++	if (growable_ && s > kVirtualThreshold) {
++		void *base = nullptr;
++		std::size_t len = s - kEntry + kVirtualHeader;
++		if (heap::virtualAlloc(&base, &len, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE) != heap::VmStatus::Success) {
++			return nullptr;
++		}
++		uintptr_t p = reinterpret_cast<uintptr_t>(base) + kVirtualHeader;
++		used_[p] = UsedBlock{reinterpret_cast<uintptr_t>(base), len, request, true};
++		return reinterpret_cast<void *>(p); // fresh pages are zero
++	}
++	auto it = pick(s);
++	while (it == free_.end()) {
++		if (!extend(s)) {
++			if (!growable_) {
++				return nullptr;
++			}
++			uintptr_t reserve = segmentReserve_;
++			if (reserve < s + kSegmentOffset + kPage) {
++				reserve = (s + kSegmentOffset + kPage + 0xffff) & ~uintptr_t(0xffff);
++			}
++			if (!newSegment(reserve, kSegmentOffset)) {
++				return nullptr;
++			}
++		}
++		it = pick(s);
++	}
++	uintptr_t a = it->first, fs = it->second.size;
++	removeFree(it);
++	if (fs - s >= kMinFree) {
++		insertFree(a + s, fs - s, false, false);
++	} else {
++		s = fs;
++	}
++	uintptr_t p = a + kEntry;
++	used_[p] = UsedBlock{a, s, request, false};
++	if (zero) {
++		std::memset(reinterpret_cast<void *>(p), 0, request);
++	}
++	return reinterpret_cast<void *>(p);
++}
++
++bool NtHeap::owns(const void *ptr) const {
++	std::lock_guard lk(mutex_);
++	return used_.count(reinterpret_cast<uintptr_t>(ptr)) != 0;
++}
++
++SIZE_T NtHeap::size(const void *ptr) const {
++	std::lock_guard lk(mutex_);
++	auto it = used_.find(reinterpret_cast<uintptr_t>(ptr));
++	return it == used_.end() ? static_cast<SIZE_T>(-1) : it->second.request;
++}
++
++bool NtHeap::free(void *ptr) {
++	std::lock_guard lk(mutex_);
++	auto it = used_.find(reinterpret_cast<uintptr_t>(ptr));
++	if (it == used_.end()) {
++		return false;
++	}
++	UsedBlock b = it->second;
++	used_.erase(it);
++	if (b.virtualBlock) {
++		heap::virtualFree(reinterpret_cast<void *>(b.block), 0, MEM_RELEASE);
++		return true;
++	}
++	insertFree(b.block, b.size, true, true);
++	return true;
++}
++
++void *NtHeap::realloc(void *ptr, SIZE_T request, bool zero, bool inPlaceOnly) {
++	uintptr_t p = reinterpret_cast<uintptr_t>(ptr);
++	SIZE_T oldRequest;
++	{
++		std::lock_guard lk(mutex_);
++		auto it = used_.find(p);
++		if (it == used_.end()) {
++			return nullptr;
++		}
++		if (request == 0) {
++			request = 1;
++		}
++		UsedBlock &b = it->second;
++		oldRequest = b.request;
++		uintptr_t s = blockSize(request);
++		if (!b.virtualBlock && !(growable_ && s > kVirtualThreshold)) {
++			if (s <= b.size) { // shrink in place
++				if (b.size - s >= kMinFree) {
++					uintptr_t tail = b.block + s, tailSize = b.size - s;
++					b.size = s;
++					b.request = request;
++					insertFree(tail, tailSize, true, true);
++				} else {
++					b.request = request;
++				}
++				if (zero && request > oldRequest) {
++					std::memset(reinterpret_cast<void *>(p + oldRequest), 0, request - oldRequest);
++				}
++				return ptr;
++			}
++			auto next = free_.find(b.block + b.size); // grow into the following free block
++			if (next != free_.end() && b.size + next->second.size >= s &&
++				segmentOf(next->first) == segmentOf(b.block)) {
++				uintptr_t total = b.size + next->second.size;
++				removeFree(next);
++				if (total - s >= kMinFree) {
++					insertFree(b.block + s, total - s, false, false);
++				} else {
++					s = total;
++				}
++				b.size = s;
++				b.request = request;
++				if (zero) {
++					std::memset(reinterpret_cast<void *>(p + oldRequest), 0, request - oldRequest);
++				}
++				return ptr;
++			}
++		} else if (b.virtualBlock && request <= b.size - kVirtualHeader) {
++			b.request = request;
++			return ptr;
++		}
++		if (inPlaceOnly) {
++			return nullptr;
++		}
++	}
++	void *q = alloc(request, zero);
++	if (!q) {
++		return nullptr;
++	}
++	std::memcpy(q, ptr, oldRequest < request ? oldRequest : request);
++	free(ptr);
++	return q;
++}
++
++} // namespace wibo
+diff --git a/src/ntheap.h b/src/ntheap.h
+new file mode 100644
+index 0000000..dff5407
+--- /dev/null
++++ b/src/ntheap.h
+@@ -0,0 +1,74 @@
++#pragma once
++
++// Optional Windows NT heap model for HeapCreate'd heaps (WIBO_HEAP_MODEL=nt).
++//
++// Some 1990s tools depend on the addresses their heap returns: Intel C/C++ 4.0's mcpcom orders the operands
++// of commutative expressions by the address of their symbol records, so its generated code differs between
++// wibo's mimalloc arena (high addresses, size-class pages) and a real Windows heap. With this mode, heaps
++// created by HeapCreate behave like the NT backend allocator (RtlAllocateHeap without a front end):
++// 8-byte block headers and granularity, dedicated free lists for blocks under 1 KiB plus a size-ordered list,
++// splitting at the front, coalescing on free, segments reserved bottom-up through VirtualAlloc and committed
++// page by page, decommit of large free blocks, and blocks over the VirtualMemoryThreshold allocated directly.
++// The process heap keeps wibo's default allocator.
++
++#include "types.h"
++
++#include <cstddef>
++#include <cstdint>
++#include <map>
++#include <mutex>
++#include <unordered_map>
++#include <vector>
++
++namespace wibo {
++
++bool ntHeapModelEnabled();
++
++class NtHeap {
++  public:
++	NtHeap(DWORD flags, SIZE_T initialSize, SIZE_T maximumSize);
++	~NtHeap();
++	NtHeap(const NtHeap &) = delete;
++	NtHeap &operator=(const NtHeap &) = delete;
++
++	void *alloc(SIZE_T size, bool zero);
++	void *realloc(void *ptr, SIZE_T size, bool zero, bool inPlaceOnly);
++	bool free(void *ptr);
++	bool owns(const void *ptr) const;
++	SIZE_T size(const void *ptr) const;
++
++  private:
++	struct FreeBlock {
++		uintptr_t size;
++		uint64_t seq;
++	};
++	struct UsedBlock {
++		uintptr_t block;   // address of the HEAP_ENTRY (or of the VirtualAlloc'd region)
++		uintptr_t size;    // block size in bytes including the header (region size for VirtualAlloc'd blocks)
++		SIZE_T request;    // caller's size, returned by HeapSize
++		bool virtualBlock; // VirtualAlloc'd (over the threshold)
++	};
++	struct Segment {
++		uintptr_t base, end;
++		std::map<uintptr_t, uintptr_t> uncommitted; // start -> end
++	};
++
++	bool newSegment(uintptr_t reserve, uintptr_t firstBlockOffset);
++	bool extend(uintptr_t bytes);
++	void insertFree(uintptr_t addr, uintptr_t size, bool coalesce, bool mayDecommit);
++	void removeFree(std::map<uintptr_t, FreeBlock>::iterator it);
++	int segmentOf(uintptr_t addr) const;
++	std::map<uintptr_t, FreeBlock>::iterator pick(uintptr_t bytes);
++	uintptr_t blockSize(SIZE_T request) const;
++
++	mutable std::mutex mutex_;
++	bool growable_;
++	uintptr_t segmentReserve_;
++	std::vector<Segment> segments_;
++	std::map<uintptr_t, FreeBlock> free_; // block address -> free block
++	std::unordered_map<uintptr_t, UsedBlock> used_; // user pointer -> block
++	uintptr_t totalFree_ = 0;
++	uint64_t seq_ = 0;
++};
++
++} // namespace wibo

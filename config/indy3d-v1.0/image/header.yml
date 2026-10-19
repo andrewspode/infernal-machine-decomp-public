@@ -1,0 +1,43 @@
+# PE headers of Indy3D.exe: the input of the header generator (Scripts/pe_generate.py header).
+#
+# The generator writes the complete header fragment (file offset 0, SizeOfHeaders bytes): LINK's
+# MS-DOS header and real-mode stub, the "Rich" build-tool record, the COFF file header, the PE32
+# optional header and the section table.  Values the linker computes are derived, not listed:
+# section addresses and file offsets (laid out from SizeOfHeaders with the two alignments),
+# SizeOfCode/SizeOfInitializedData (aligned virtual sizes of code/initialized-data sections),
+# BaseOfCode/BaseOfData, SizeOfImage, the import/IAT directories (from imports.yml) and the
+# resource directory (the .rsrc section).  The Rich record's XOR key is computed from its entries.
+linker_stub: true          # LINK's standard 64-byte MS-DOS header plus "This program cannot be run in DOS mode." stub
+rich:                      # [product id, tool build, object count] in record order
+  - [0x0A, 8447, 1]
+  - [0x0E, 7299, 6]
+  - [0x0A, 8168, 39]
+  - [0x13, 8034, 7]
+  - [0x00, 0, 530]
+  - [0x06, 1668, 1]
+file_header:
+  machine: 0x014C
+  timestamp: 0x3819F0F4    # 1999-10-29 19:09:40 UTC
+  characteristics: 0x010F  # relocs stripped, executable, line numbers and local symbols stripped, 32-bit
+optional_header:
+  linker_version: [5, 10]
+  entry_point: 0x004F73C0
+  image_base: 0x00400000
+  section_alignment: 0x1000
+  file_alignment: 0x200
+  os_version: [4, 0]
+  image_version: [0, 0]
+  subsystem_version: [4, 0]
+  subsystem: 2             # Windows GUI
+  dll_characteristics: 0
+  stack: [0x100000, 0x1000]  # reserve, commit
+  heap: [0x100000, 0x1000]
+  directories: 16
+  size_of_headers: 0x400
+sections:                  # in image order; raw_size is the file-backed part of the virtual size
+  - {name: .text, virtual_size: 0x1039C6, raw_size: 0x103A00, characteristics: 0x60000020}
+  - {name: _TEXT16, virtual_size: 0x4, raw_size: 0x200, characteristics: 0x60020020}
+  - {name: .rdata, virtual_size: 0x6EDC, raw_size: 0x7000, characteristics: 0x40000040}
+  - {name: .data, virtual_size: 0x13529F0, raw_size: 0x44200, characteristics: 0xC0000040}
+  - {name: .data1, virtual_size: 0x190, raw_size: 0x200, characteristics: 0xC0000040}
+  - {name: .rsrc, virtual_size: 0x28608, raw_size: 0x28800, characteristics: 0x40000040}

@@ -1,0 +1,5 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+# Vendor SDK files are kept byte-for-byte as installed (CRLF).
+Libs/external/** -text
+orig/** -text

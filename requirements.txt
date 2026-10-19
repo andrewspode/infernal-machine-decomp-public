@@ -1,0 +1,4 @@
+pefile==2024.8.26
+capstone==5.0.7
+PyYAML==6.0.3
+pyte==0.8.2

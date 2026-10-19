@@ -1,0 +1,10 @@
+#ifndef WKERNEL_TYPES_H
+#define WKERNEL_TYPES_H
+#include <j3dcore/j3d.h>
+
+J3D_EXTERN_C_START
+
+typedef int (J3DAPI* WKERNELWNDPROC)(HWND, UINT, WPARAM, LPARAM, int* pRetValue);
+
+J3D_EXTERN_C_END
+#endif //WKERNEL_TYPES_H

@@ -1,0 +1,143 @@
+#include "sithItem.h"
+
+#include <rdroid/Math/rdVector.h>
+
+#include <sith/Cog/sithCog.h>
+#include <sith/Devices/sithComm.h>
+#include <sith/Dss/sithDSSThing.h>
+#include <sith/Engine/sithCollision.h>
+#include <sith/Gameplay/sithPlayer.h>
+#include <sith/Gameplay/sithTime.h>
+#include <sith/World/sithThing.h>
+
+#include <std/Win95/stdComm.h>
+
+int J3DAPI sithItem_PlayerCollisionHandler(SithThing* pItem, SithThing* pPlayer, SithCollision* pCollision, int bSecondThingIsSource)
+{
+
+#line 74
+    SITH_ASSERTREL(pItem && pPlayer);
+    SITH_ASSERTREL(pItem->type == SITH_THING_ITEM);
+    SITH_ASSERTREL(pPlayer->type == SITH_THING_PLAYER);
+
+    if ( !(stdComm_IsGameActive() && (pPlayer->flags & SITH_TF_REMOTE) != 0) )
+    {
+        if ( !sithCollision_HasLOS(pPlayer, pItem, 0) )
+        {
+            return 0;
+        }
+
+        if ( pItem->thingInfo.itemInfo.msecLastTouchTime < sithTime_msecGameTime )
+        {
+            pItem->thingInfo.itemInfo.msecLastTouchTime = sithTime_msecGameTime + 500;
+        }
+    }
+
+    return 0;
+}
+
+void J3DAPI sithItem_Initialize(SithThing* pThing)
+{
+#line 110
+    SITH_ASSERTREL(pThing);
+    rdVector_Copy3(&pThing->thingInfo.itemInfo.pos, &pThing->pos);
+    pThing->thingInfo.itemInfo.pInSector = pThing->pInSector;
+}
+
+void J3DAPI sithItem_SetItemTaken(SithThing* pItem, const SithThing* pSrcThing, int bNoMultiSync)
+{
+    if ( stdComm_IsGameActive() && !bNoMultiSync )
+    {
+        sithDSSThing_Take(pItem, pSrcThing, 0xFFu);
+        return;
+    }
+
+    if ( pSrcThing == sithPlayer_pLocalPlayerThing )
+    {
+        sithCog_ThingSendMessage(pItem, pSrcThing, SITHCOG_MSG_TAKEN);
+    }
+
+    if ( (pItem->thingInfo.itemInfo.flags & SITH_ITEM_RESPAWN_SP) != 0 && !stdComm_IsGameActive()
+        || (pItem->thingInfo.itemInfo.flags & SITH_ITEM_RESPAWN_MP) != 0 && stdComm_IsGameActive() )
+    {
+        // Re-spawn enabled, hide item for the time of respawn interval
+        // Fyi, re-spawning handled in sithItem_DestroyItem
+        pItem->flags |= SITH_TF_DISABLED; // hide item
+        pItem->msecLifeLeft = (uint32_t)(pItem->thingInfo.itemInfo.secRespawnInterval * 1000.0f);
+    }
+    else
+    {
+        sithThing_DestroyThing(pItem);
+    }
+}
+
+void J3DAPI sithItem_DestroyItem(SithThing* pItem)
+{
+    if ( stdComm_IsGameActive() && !stdComm_IsGameHost() )
+    {
+        pItem->msecLifeLeft = 0;
+        return;
+    }
+
+    if ( pItem->thingInfo.itemInfo.pInSector
+        && (stdComm_IsGameActive() && (pItem->thingInfo.itemInfo.flags & SITH_ITEM_RESPAWN_MP) != 0
+            || !stdComm_IsGameActive() && (pItem->thingInfo.itemInfo.flags & SITH_ITEM_RESPAWN_SP) != 0) )
+    {
+        // Re-spawn item
+
+        memset(&pItem->moveInfo.physics.velocity, 0, sizeof(pItem->moveInfo.physics.velocity));
+
+        sithThing_ExitSector(pItem);
+        sithThing_SetPositionAndOrient(pItem, &pItem->thingInfo.itemInfo.pos, &pItem->orient);
+        sithThing_SetSector(pItem, pItem->thingInfo.itemInfo.pInSector, 1);
+
+        pItem->flags &= ~SITH_TF_DISABLED;
+        pItem->msecLifeLeft = 0;
+
+        sithCog_ThingSendMessage(pItem, pItem, SITHCOG_MSG_RESPAWN);
+    }
+    else if ( pItem->renderFrame + 1 == sithMain_frameNumber )
+    {
+        // Item is in camera view extend life for 3 sec
+        pItem->msecLifeLeft = 3000;
+    }
+    else
+    {
+        sithThing_DestroyThing(pItem);
+    }
+
+    if ( sithMessage_outputstream )
+    {
+        sithDSSThing_UpdateState(pItem, SITHMESSAGE_SENDTOJOINEDPLAYERS, SITHMESSAGE_STREAM_ALL);
+        sithDSSThing_Pos(pItem, SITHMESSAGE_SENDTOJOINEDPLAYERS, DPSEND_GUARANTEED);// TODO: make separate global var for dpflags and do secure connection
+    }
+}
+
+int J3DAPI sithItem_ParseArg(const StdConffileArg* pArg, SithThing* pThing, int adjNum)
+{
+    SithItemFlag iflags;
+
+    switch ( adjNum )
+    {
+        case SITHTHING_ARG_TYPEFLAGS:
+            if ( sscanf(pArg->argValue, "%x", &iflags) != 1 )
+            {
+                goto error;
+            }
+
+            pThing->thingInfo.itemInfo.flags = iflags;
+            break;
+
+        case SITHTHING_ARG_RESPAWN:
+            pThing->thingInfo.itemInfo.secRespawnInterval = D3DVAL(atof(pArg->argValue));
+            break;
+
+        default:
+            return 0;
+    }
+
+    return 1;
+
+error:
+    return 0;
+}

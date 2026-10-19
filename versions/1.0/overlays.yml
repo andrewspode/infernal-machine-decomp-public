@@ -1,0 +1,55 @@
+# The 1.0 overlays (README.md, "Versions"). The shared tree (Jones3D/, Libs/) is the 1.2 source; every other
+# file under versions/1.0/ is a complete 1.0 copy of the shared file at the same path below the repository root,
+# used instead of it by the 1.0 build (`ninja v1.0-*`).
+#
+# `base` is the git blob id (`git hash-object <shared file>`) of the shared 1.2 file the overlay is paired with.
+# tests/test_version_overlays.py fails when the shared file no longer has that id: a change to the 1.2 source has
+# to be carried into the 1.0 overlay (or shown not to apply to 1.0), then `base` updated. `git show <base>` gives
+# the 1.2 text the overlay was last checked against, so `git diff <base> <shared file>` is the change to mirror.
+# `change` says what 1.2 changed relative to the 1.0 text (config/indy3d-v1.2/<TU>.md).
+#
+# Until 2026-10-18 the layout was the other way round (the shared tree 1.0, these files' 1.2 copies under
+# versions/1.2/); the 1.0 copies here are those shared files, moved unchanged.
+overlays:
+  Jones3D/Display/JonesConsole.c:
+    base: 9f365672796f54a86d07d204e81826522291c344
+    change: 'JonesConsole_aVersion: the 1.2 build date and time (config/indy3d-v1.2/JonesConsole.md)'
+  Jones3D/Display/jonesConfig.c:
+    base: 47ef1a9713aa26b8e07d83b81ab5e308af802c2c
+    change: 'ControlToString names keys with GetKeyNameTextA; the store-cart, insert-CD and SetTextControl fixes (config/indy3d-v1.2/jonesConfig.md)'
+  Jones3D/Indy3D.rc:
+    base: 4381d8efba3975db21a8d0bee52192740186afd4
+    change: 'the key-remap dialog (120): JONES_STR_REMAP, the black frame and the icon moved and resized, as 1.1 (config/indy3d-v1.2/README.md)'
+  Jones3D/Main/JonesMain.c:
+    base: 2c08d7fecc93b0d53686151f0e579c212d6e6b39
+    change: 'the ten __LINE__ pins moved by the lines 1.2 added (the PrintFramerate load order follows from its pin); three unreferenced .bss statics (config/indy3d-v1.2/JonesMain.md)'
+  Jones3D/Play/jonesCog.c:
+    base: 6e533a8ebbbb318a4477295fffb5402309875227
+    change: 'jonesCog_StartCutsceneFunc: the pWorld assertion at line 289 (config/indy3d-v1.2/jonesCog.md)'
+  Libs/sith/Dss/sithGamesave.c:
+    base: 127d87adcc811530525f94f0759ae55929a83941
+    change: 'sithGamesave_SaveFile: the 1.2 build date in the save header (config/indy3d-v1.2/sithGamesave.md)'
+  Libs/sith/Cog/sithCogFunctionThing.c:
+    base: 939c3f74f053352a52caa38009074abd0aa114ec
+    change: 'sithCogFunctionThing_CreateLaser: an invalid end pos vector also sets bArgError (config/indy3d-v1.2/sithCogFunctionThing.md)'
+  Libs/sith/Cog/sithCogParse.c:
+    base: a65c49068cb13fcb94f49dff674b15b5d83cac87
+    change: 'sithCogParse_MakeVectorLeafNode: tests the returned node, not the function address (config/indy3d-v1.2/sithCogParse.md)'
+  Libs/sith/Gameplay/sithWhip.c:
+    base: 5a5da53c592e6951324fb0c76a28e572e572678b
+    change: 'sithWhip_CreatePlayerWhip: the early exit clears sithWhip_pWhipThing (config/indy3d-v1.2/sithWhip.md)'
+  Libs/sith/World/sithWeapon.c:
+    base: 3fdfbf103fef7a47c2b6b676cfcdc6a23e5ca14d
+    change: 'sithWeapon_ProcessWeaponControls: the whip activation also clears the deactivated weapon id (config/indy3d-v1.2/sithWeapon.md)'
+  Libs/sith/World/sithActor.c:
+    base: 4a4ef56438cdca5a6fc7449e06a74c0ab9c12fa3
+    change: 'sithActor_DamageActor: a player damaged by itself with type 0x1000/0x2000/0x4000 sets bPlayedDamageSound (config/indy3d-v1.2/sithActor.md)'
+  Jones3D/Display/JonesHud.c:
+    base: 3124dd3bd9e8952d7a2c7baee1a4361346927566
+    change: 'JonesHud_DrawCredits: two more credit records (config/indy3d-v1.2/JonesHud.md)'
+  Libs/sith/Engine/sithCamera.c:
+    base: 39d0d00692ff7eb36b9d7594832ade3e40d94196
+    change: 'sithCamera_SetCameraCanvas: an external camera restarts its focus interpolation (config/indy3d-v1.2/sithCamera.md)'
+  Libs/sith/Gameplay/sithPlayerControls.c:
+    base: 6fb6ed4ae104c20e7d7afd9ba870b029f306aeff
+    change: 'sithPlayerControls_ProcessGeneralMove: the push and pull searches start 0.05 lower for "2marpushstatue" (an offset vector in an if/else); the four __LINE__ pins +23; the count-fit blocks re-fitted for 1.2 (one new); offset declared once at function scope; Matching under 1.2 with the shared index-spelled lvec.z writes (config/indy3d-v1.2/sithPlayerControls.md)'

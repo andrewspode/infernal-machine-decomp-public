@@ -1,0 +1,181 @@
+# Statically linked library members (AGENTS.md §7, docs/crt.md).
+#
+# Retail links these from third-party static libraries; they are not decompiled.
+# Each unit is one member of a pinned archive, extracted unmodified by
+# `ninja` (pebuild libextract) and verified by the same strict whole-TU matcher
+# as a compiled game TU: every section placed at its splits.txt range and, after
+# relocation, byte-identical to retail. Units are always selected; they report in
+# the objdiff `library` category and in link.json/progress.json `library_units`,
+# never as game TUs. A unit is named lib/<library>/<member basename>.
+libraries:
+  dinput:
+    path: Libs/external/DirectX61c/lib/dinput.lib
+    sha256: 4164d8a8f4f866d0826f24a2a1a80819836c08e5a5b1fa07614c286f2285d211
+    origin: DirectX 6.1 SDK lib/dinput.lib (dx61sdkimage.exe, installed by Scripts/setup_toolchain.py)
+  libc:
+    path: tools/msvc500sp3-7303/lib/libc.lib
+    sha256: 3b5f43e920c37c8da086b0d3ef0396e6517d44fcdcb4e7d03a6058620bc13ee3
+    origin: VS97 SP3 (VC5) single-threaded C runtime lib/libc.lib of the pinned msvc500sp3-7303 toolchain (Scripts/setup_toolchain.py)
+units:
+  lib/dinput/dilib3.obj: {library: dinput, member: dilib3.obj}
+  lib/dinput/dilib2.obj: {library: dinput, member: dilib2.obj}
+  lib/dinput/dilib1.obj: {library: dinput, member: dilib1.obj}
+  lib/libc/87cdisp.obj: {library: libc, member: "..\\build\\intel\\st_obj\\87cdisp.obj"}
+  lib/libc/87disp.obj: {library: libc, member: "..\\build\\intel\\st_obj\\87disp.obj"}
+  lib/libc/87except.obj: {library: libc, member: "..\\build\\intel\\st_obj\\87except.obj"}
+  lib/libc/87fmod.obj: {library: libc, member: "..\\build\\intel\\st_obj\\87fmod.obj"}
+  lib/libc/87tran.obj: {library: libc, member: "..\\build\\intel\\st_obj\\87tran.obj"}
+  lib/libc/_ctype.obj: {library: libc, member: "build\\intel\\st_obj\\_ctype.obj"}
+  lib/libc/_filbuf.obj: {library: libc, member: "build\\intel\\st_obj\\_filbuf.obj"}
+  lib/libc/_file.obj: {library: libc, member: "build\\intel\\st_obj\\_file.obj"}
+  lib/libc/_filwbuf.obj: {library: libc, member: "build\\intel\\st_obj\\_filwbuf.obj"}
+  lib/libc/_flsbuf.obj: {library: libc, member: "build\\intel\\st_obj\\_flsbuf.obj"}
+  lib/libc/_flswbuf.obj: {library: libc, member: "build\\intel\\st_obj\\_flswbuf.obj"}
+  lib/libc/_fptostr.obj: {library: libc, member: "build\\intel\\st_obj\\_fptostr.obj"}
+  lib/libc/_freebuf.obj: {library: libc, member: "build\\intel\\st_obj\\_freebuf.obj"}
+  lib/libc/_getbuf.obj: {library: libc, member: "build\\intel\\st_obj\\_getbuf.obj"}
+  lib/libc/_newmode.obj: {library: libc, member: "build\\intel\\st_obj\\_newmode.obj"}
+  lib/libc/_open.obj: {library: libc, member: "build\\intel\\st_obj\\_open.obj"}
+  lib/libc/_sftbuf.obj: {library: libc, member: "build\\intel\\st_obj\\_sftbuf.obj"}
+  lib/libc/adj_fdiv.obj: {library: libc, member: "..\\build\\intel\\st_obj\\adj_fdiv.obj"}
+  lib/libc/atof.obj: {library: libc, member: "build\\intel\\st_obj\\atof.obj"}
+  lib/libc/atox.obj: {library: libc, member: "build\\intel\\st_obj\\atox.obj"}
+  lib/libc/aw_env.obj: {library: libc, member: "build\\intel\\st_obj\\aw_env.obj"}
+  lib/libc/calloc.obj: {library: libc, member: "build\\intel\\st_obj\\calloc.obj"}
+  lib/libc/cfin.obj: {library: libc, member: "..\\build\\intel\\st_obj\\cfin.obj"}
+  lib/libc/cfout.obj: {library: libc, member: "..\\build\\intel\\st_obj\\cfout.obj"}
+  lib/libc/chkstk.obj: {library: libc, member: "build\\intel\\st_obj\\chkstk.obj"}
+  lib/libc/chsize.obj: {library: libc, member: "build\\intel\\st_obj\\chsize.obj"}
+  lib/libc/close.obj: {library: libc, member: "build\\intel\\st_obj\\close.obj"}
+  lib/libc/closeall.obj: {library: libc, member: "build\\intel\\st_obj\\closeall.obj"}
+  lib/libc/cmiscdat.obj: {library: libc, member: "build\\intel\\st_obj\\cmiscdat.obj"}
+  lib/libc/commit.obj: {library: libc, member: "build\\intel\\st_obj\\commit.obj"}
+  lib/libc/common.obj: {library: libc, member: "..\\build\\intel\\st_obj\\common.obj"}
+  lib/libc/constpow.obj: {library: libc, member: "..\\build\\intel\\st_obj\\constpow.obj"}
+  lib/libc/crt0dat.obj: {library: libc, member: "build\\intel\\st_obj\\crt0dat.obj"}
+  lib/libc/crt0fp.obj: {library: libc, member: "build\\intel\\st_obj\\crt0fp.obj"}
+  lib/libc/crt0init.obj: {library: libc, member: "build\\intel\\st_obj\\crt0init.obj"}
+  lib/libc/crt0msg.obj: {library: libc, member: "build\\intel\\st_obj\\crt0msg.obj"}
+  lib/libc/crtmbox.obj: {library: libc, member: "build\\intel\\st_obj\\crtmbox.obj"}
+  lib/libc/ctype.obj: {library: libc, member: "build\\intel\\st_obj\\ctype.obj"}
+  lib/libc/cvt.obj: {library: libc, member: "..\\build\\intel\\st_obj\\cvt.obj"}
+  lib/libc/days.obj: {library: libc, member: "build\\intel\\st_obj\\days.obj"}
+  lib/libc/dosmap.obj: {library: libc, member: "build\\intel\\st_obj\\dosmap.obj"}
+  lib/libc/dtoxtime.obj: {library: libc, member: "build\\intel\\st_obj\\dtoxtime.obj"}
+  lib/libc/exsup.obj: {library: libc, member: "build\\intel\\st_obj\\exsup.obj"}
+  lib/libc/exsup3.obj: {library: libc, member: "build\\intel\\st_obj\\exsup3.obj"}
+  lib/libc/fclose.obj: {library: libc, member: "build\\intel\\st_obj\\fclose.obj"}
+  lib/libc/fdopen.obj: {library: libc, member: "build\\intel\\st_obj\\fdopen.obj"}
+  lib/libc/fflush.obj: {library: libc, member: "build\\intel\\st_obj\\fflush.obj"}
+  lib/libc/fgets.obj: {library: libc, member: "build\\intel\\st_obj\\fgets.obj"}
+  lib/libc/fgetwc.obj: {library: libc, member: "build\\intel\\st_obj\\fgetwc.obj"}
+  lib/libc/fgetws.obj: {library: libc, member: "build\\intel\\st_obj\\fgetws.obj"}
+  lib/libc/findfile.obj: {library: libc, member: "build\\intel\\st_obj\\findfile.obj"}
+  lib/libc/fopen.obj: {library: libc, member: "build\\intel\\st_obj\\fopen.obj"}
+  lib/libc/fp8.obj: {library: libc, member: "build\\intel\\st_obj\\fp8.obj"}
+  lib/libc/fpctrl.obj: {library: libc, member: "..\\build\\intel\\st_obj\\fpctrl.obj"}
+  lib/libc/fpexcept.obj: {library: libc, member: "..\\build\\intel\\st_obj\\fpexcept.obj"}
+  lib/libc/fpinit.obj: {library: libc, member: "..\\build\\intel\\st_obj\\fpinit.obj"}
+  lib/libc/fprintf.obj: {library: libc, member: "build\\intel\\st_obj\\fprintf.obj"}
+  lib/libc/fputs.obj: {library: libc, member: "build\\intel\\st_obj\\fputs.obj"}
+  lib/libc/fputwc.obj: {library: libc, member: "build\\intel\\st_obj\\fputwc.obj"}
+  lib/libc/fread.obj: {library: libc, member: "build\\intel\\st_obj\\fread.obj"}
+  lib/libc/free.obj: {library: libc, member: "build\\intel\\st_obj\\free.obj"}
+  lib/libc/frnd.obj: {library: libc, member: "..\\build\\intel\\st_obj\\frnd.obj"}
+  lib/libc/fseek.obj: {library: libc, member: "build\\intel\\st_obj\\fseek.obj"}
+  lib/libc/ftell.obj: {library: libc, member: "build\\intel\\st_obj\\ftell.obj"}
+  lib/libc/ftol.obj: {library: libc, member: "..\\build\\intel\\st_obj\\ftol.obj"}
+  lib/libc/fwrite.obj: {library: libc, member: "build\\intel\\st_obj\\fwrite.obj"}
+  lib/libc/genexcep.obj: {library: libc, member: "..\\build\\intel\\st_obj\\genexcep.obj"}
+  lib/libc/getenv.obj: {library: libc, member: "build\\intel\\st_obj\\getenv.obj"}
+  lib/libc/handler.obj: {library: libc, member: "build\\intel\\st_obj\\handler.obj"}
+  lib/libc/heapinit.obj: {library: libc, member: "build\\intel\\st_obj\\heapinit.obj"}
+  lib/libc/ieee87.obj: {library: libc, member: "..\\build\\intel\\st_obj\\ieee87.obj"}
+  lib/libc/ieeemisc.obj: {library: libc, member: "..\\build\\intel\\st_obj\\ieeemisc.obj"}
+  lib/libc/input.obj: {library: libc, member: "build\\intel\\st_obj\\input.obj"}
+  lib/libc/intrncvt.obj: {library: libc, member: "..\\build\\intel\\st_obj\\intrncvt.obj"}
+  lib/libc/ioinit.obj: {library: libc, member: "build\\intel\\st_obj\\ioinit.obj"}
+  lib/libc/isatty.obj: {library: libc, member: "build\\intel\\st_obj\\isatty.obj"}
+  lib/libc/isctype.obj: {library: libc, member: "build\\intel\\st_obj\\isctype.obj"}
+  lib/libc/ismbbyte.obj: {library: libc, member: "build\\intel\\st_obj\\ismbbyte.obj"}
+  lib/libc/ldexp.obj: {library: libc, member: "..\\build\\intel\\st_obj\\ldexp.obj"}
+  lib/libc/ldiv.obj: {library: libc, member: "build\\intel\\st_obj\\ldiv.obj"}
+  lib/libc/llmul.obj: {library: libc, member: "build\\intel\\st_obj\\llmul.obj"}
+  lib/libc/llshl.obj: {library: libc, member: "build\\intel\\st_obj\\llshl.obj"}
+  lib/libc/lseek.obj: {library: libc, member: "build\\intel\\st_obj\\lseek.obj"}
+  lib/libc/malloc.obj: {library: libc, member: "build\\intel\\st_obj\\malloc.obj"}
+  lib/libc/mantold.obj: {library: libc, member: "..\\build\\intel\\st_obj\\mantold.obj"}
+  lib/libc/matherr.obj: {library: libc, member: "..\\build\\intel\\st_obj\\matherr.obj"}
+  lib/libc/mbctype.obj: {library: libc, member: "build\\intel\\st_obj\\mbctype.obj"}
+  lib/libc/mbschr.obj: {library: libc, member: "build\\intel\\st_obj\\mbschr.obj"}
+  lib/libc/mbsnbico.obj: {library: libc, member: "build\\intel\\st_obj\\mbsnbico.obj"}
+  lib/libc/mbtowc.obj: {library: libc, member: "build\\intel\\st_obj\\mbtowc.obj"}
+  lib/libc/memmove.obj: {library: libc, member: "build\\intel\\st_obj\\memmove.obj"}
+  lib/libc/ncommode.obj: {library: libc, member: "build\\intel\\st_obj\\ncommode.obj"}
+  lib/libc/nlsdata1.obj: {library: libc, member: "build\\intel\\st_obj\\nlsdata1.obj"}
+  lib/libc/nlsdata2.obj: {library: libc, member: "build\\intel\\st_obj\\nlsdata2.obj"}
+  lib/libc/open.obj: {library: libc, member: "build\\intel\\st_obj\\open.obj"}
+  lib/libc/osfinfo.obj: {library: libc, member: "build\\intel\\st_obj\\osfinfo.obj"}
+  lib/libc/output.obj: {library: libc, member: "build\\intel\\st_obj\\output.obj"}
+  lib/libc/pow.obj: {library: libc, member: "..\\build\\intel\\st_obj\\pow.obj"}
+  lib/libc/powhlp.obj: {library: libc, member: "..\\build\\intel\\st_obj\\powhlp.obj"}
+  lib/libc/printf.obj: {library: libc, member: "build\\intel\\st_obj\\printf.obj"}
+  lib/libc/qsort.obj: {library: libc, member: "build\\intel\\st_obj\\qsort.obj"}
+  lib/libc/rand.obj: {library: libc, member: "build\\intel\\st_obj\\rand.obj"}
+  lib/libc/read.obj: {library: libc, member: "build\\intel\\st_obj\\read.obj"}
+  lib/libc/realloc.obj: {library: libc, member: "build\\intel\\st_obj\\realloc.obj"}
+  lib/libc/rewind.obj: {library: libc, member: "build\\intel\\st_obj\\rewind.obj"}
+  lib/libc/sbheap.obj: {library: libc, member: "build\\intel\\st_obj\\sbheap.obj"}
+  lib/libc/sehsupp.obj: {library: libc, member: "build\\intel\\st_obj\\sehsupp.obj"}
+  lib/libc/setenv.obj: {library: libc, member: "build\\intel\\st_obj\\setenv.obj"}
+  lib/libc/setjmp3.obj: {library: libc, member: "build\\intel\\st_obj\\setjmp3.obj"}
+  lib/libc/setmode.obj: {library: libc, member: "build\\intel\\st_obj\\setmode.obj"}
+  lib/libc/snprintf.obj: {library: libc, member: "build\\intel\\st_obj\\snprintf.obj"}
+  lib/libc/snwprint.obj: {library: libc, member: "build\\intel\\st_obj\\snwprint.obj"}
+  lib/libc/sprintf.obj: {library: libc, member: "build\\intel\\st_obj\\sprintf.obj"}
+  lib/libc/sscanf.obj: {library: libc, member: "build\\intel\\st_obj\\sscanf.obj"}
+  lib/libc/stdargv.obj: {library: libc, member: "build\\intel\\st_obj\\stdargv.obj"}
+  lib/libc/stdenvp.obj: {library: libc, member: "build\\intel\\st_obj\\stdenvp.obj"}
+  lib/libc/strchr.obj: {library: libc, member: "build\\intel\\st_obj\\strchr.obj"}
+  lib/libc/strcspn.obj: {library: libc, member: "build\\intel\\st_obj\\strcspn.obj"}
+  lib/libc/strdup.obj: {library: libc, member: "build\\intel\\st_obj\\strdup.obj"}
+  lib/libc/stream.obj: {library: libc, member: "build\\intel\\st_obj\\stream.obj"}
+  lib/libc/strgtold.obj: {library: libc, member: "..\\build\\intel\\st_obj\\strgtold.obj"}
+  lib/libc/stricmp.obj: {library: libc, member: "build\\intel\\st_obj\\stricmp.obj"}
+  lib/libc/strlwr.obj: {library: libc, member: "build\\intel\\st_obj\\strlwr.obj"}
+  lib/libc/strncat.obj: {library: libc, member: "build\\intel\\st_obj\\strncat.obj"}
+  lib/libc/strncmp.obj: {library: libc, member: "build\\intel\\st_obj\\strncmp.obj"}
+  lib/libc/strncpy.obj: {library: libc, member: "build\\intel\\st_obj\\strncpy.obj"}
+  lib/libc/strnicmp.obj: {library: libc, member: "build\\intel\\st_obj\\strnicmp.obj"}
+  lib/libc/strpbrk.obj: {library: libc, member: "build\\intel\\st_obj\\strpbrk.obj"}
+  lib/libc/strrchr.obj: {library: libc, member: "build\\intel\\st_obj\\strrchr.obj"}
+  lib/libc/strspn.obj: {library: libc, member: "build\\intel\\st_obj\\strspn.obj"}
+  lib/libc/strstr.obj: {library: libc, member: "build\\intel\\st_obj\\strstr.obj"}
+  lib/libc/strtok.obj: {library: libc, member: "build\\intel\\st_obj\\strtok.obj"}
+  lib/libc/strupr.obj: {library: libc, member: "build\\intel\\st_obj\\strupr.obj"}
+  lib/libc/tenpow.obj: {library: libc, member: "..\\build\\intel\\st_obj\\tenpow.obj"}
+  lib/libc/testfdiv.obj: {library: libc, member: "..\\build\\intel\\st_obj\\testfdiv.obj"}
+  lib/libc/timeset.obj: {library: libc, member: "build\\intel\\st_obj\\timeset.obj"}
+  lib/libc/tolower.obj: {library: libc, member: "build\\intel\\st_obj\\tolower.obj"}
+  lib/libc/toupper.obj: {library: libc, member: "build\\intel\\st_obj\\toupper.obj"}
+  lib/libc/txtmode.obj: {library: libc, member: "build\\intel\\st_obj\\txtmode.obj"}
+  lib/libc/tzset.obj: {library: libc, member: "build\\intel\\st_obj\\tzset.obj"}
+  lib/libc/ulldiv.obj: {library: libc, member: "build\\intel\\st_obj\\ulldiv.obj"}
+  lib/libc/ullrem.obj: {library: libc, member: "build\\intel\\st_obj\\ullrem.obj"}
+  lib/libc/ungetc.obj: {library: libc, member: "build\\intel\\st_obj\\ungetc.obj"}
+  lib/libc/unlink.obj: {library: libc, member: "build\\intel\\st_obj\\unlink.obj"}
+  lib/libc/util.obj: {library: libc, member: "..\\build\\intel\\st_obj\\util.obj"}
+  lib/libc/vsnprint.obj: {library: libc, member: "build\\intel\\st_obj\\vsnprint.obj"}
+  lib/libc/vsprintf.obj: {library: libc, member: "build\\intel\\st_obj\\vsprintf.obj"}
+  lib/libc/wcslen.obj: {library: libc, member: "build\\intel\\st_obj\\wcslen.obj"}
+  lib/libc/wcsncpy.obj: {library: libc, member: "build\\intel\\st_obj\\wcsncpy.obj"}
+  lib/libc/wcstok.obj: {library: libc, member: "build\\intel\\st_obj\\wcstok.obj"}
+  lib/libc/wcstombs.obj: {library: libc, member: "build\\intel\\st_obj\\wcstombs.obj"}
+  lib/libc/wctomb.obj: {library: libc, member: "build\\intel\\st_obj\\wctomb.obj"}
+  lib/libc/wincrt0.obj: {library: libc, member: "build\\intel\\st_obj\\wincrt0.obj"}
+  lib/libc/winxfltr.obj: {library: libc, member: "build\\intel\\st_obj\\winxfltr.obj"}
+  lib/libc/woutput.obj: {library: libc, member: "build\\intel\\st_obj\\woutput.obj"}
+  lib/libc/write.obj: {library: libc, member: "build\\intel\\st_obj\\write.obj"}
+  lib/libc/wtombenv.obj: {library: libc, member: "build\\intel\\st_obj\\wtombenv.obj"}
+  lib/libc/x10fout.obj: {library: libc, member: "..\\build\\intel\\st_obj\\x10fout.obj"}
+  lib/libc/xtoa.obj: {library: libc, member: "build\\intel\\st_obj\\xtoa.obj"}

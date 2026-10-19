@@ -1,0 +1,139 @@
+
+#ifndef J3DCORE_H
+#define J3DCORE_H
+#include <j3dcore/types.h>
+
+// Version definition
+#define J3D_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define J3D_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define J3D_VERSION_PATCH @PROJECT_VERSION_PATCH@
+
+#define J3D_VERSION        (J3D_VERSION_MAJOR * 10000 + J3D_VERSION_MINOR * 100 + J3D_VERSION_PATCH)
+#define J3D_VERSION_STRING "v@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@"
+#define J3D_VERSION_FULL   "@PROJECT_NAME@ " J3D_VERSION_STRING
+
+#ifndef J3D_FILE
+    #if defined(_MSC_VER) && defined(__INTELLISENSE__)
+        #define J3D_FILE "dummy.c"
+    #else
+        #define J3D_FILE __FILE__
+    #endif
+#endif
+
+#if defined(_M_X64) || defined(__x86_64__) || defined(_M_IA64) || defined(__ia64__) || defined(__aarch64__) || defined(__amd64)
+    #define J3D_64BIT 1
+#else // assuming 32-bit platform
+    #define J3D_32BIT 1
+#endif
+
+// Platform specific definitions
+#ifdef _WIN32
+#   ifndef NDEBUG
+#       define J3D_DEBUG 1
+#   endif
+#   ifndef STRICT
+#       define STRICT
+#   endif
+#   define WIN32_LEAN_AND_MEAN
+#   include <Windows.h>
+#   define strcmpi _strcmpi
+#   define strncmpi _strnicmp
+#   define wstrcmpi _wcsicmp
+#   define wstrncmpi _wcsnicmp
+#else
+    // TODO: define J3D_DEBUG
+    typedef int      BOOL;
+    typedef uint8_t  BYTE;
+    typedef uint16_t WORD;
+#endif
+
+
+
+// String equivalence macros
+# define streq(s1, s2) (strcmp(s1, s2) == 0)
+# define strneq(s1, s2, n) (strncmp(s1, s2, n) == 0)
+
+# define wstreq(s1, s2) (wcscmp(s1, s2) == 0)
+# define wstrneq(s1, s2, n) (wcsncmp(s1, s2, n) == 0)
+
+// Case insensitive string equivalence macros
+# define streqi(s1, s2) (strcmpi(s1, s2) == 0)
+# define strneqi(s1, s2, n) (strncmpi(s1, s2, n) == 0)
+# define wstreqi(s1, s2) (wstrcmpi(s1, s2) == 0)
+# define wstrneqi(s1, s2, n) (wstrncmpi(s1, s2, n) == 0)
+
+#ifndef J3DNORETURN
+#  if defined(_MSC_VER) && _MSC_VER < 1200
+/* VC5 has no noreturn declspec. */
+#    define J3DNORETURN
+#  else
+#    define J3DNORETURN __declspec(noreturn)
+#  endif
+#endif
+#define J3DAPI __cdecl
+
+// TODO: Detect if C23 and N3030 - Enhanced Enumerations is supported
+//       In this case define macro as: #define J3D_ENUM_TYPE(x) : x
+#define J3D_ENUM_TYPE( x )
+
+#define J3DMIN(a, b) (((a) < (b)) ? (a) : (b))
+#define J3DMAX(a, b) (((a) > (b)) ? (a) : (b))
+#define J3DINRANGE(v, min, max) ((v) >= (min) ? (v) <= (max) : 0)
+
+
+/**
+* @brief Log an fatal message and asserts
+* @param module - Pointer to the host services module containing assert function
+* @param format - Message string
+*/
+#define J3DLOG_FATAL(module, message) \
+    module->pAssert(message, J3D_FILE, __LINE__)
+
+
+#ifdef J3D_DEBUG
+/**
+* @brief Asserts a condition in debug build only.
+*
+* Checks if the condition is true. If the condition evaluates to false,
+* it triggers an assertion by calling the assert function (`pAssert`) from the
+* provided host services module (`hs`).
+*
+* @param condition - Condition to check.
+* @param hs - Pointer to host services with the assert function.
+*
+* @note This assertion is NOT preserved in release builds.
+*
+* @usage J3D_ASSERT(x > 0, hs);
+*/
+#   define J3D_ASSERT( condition, hs ) \
+    ((condition) ? (void)0 : (void)(hs)->pAssert(#condition, J3D_FILE, __LINE__))
+#else
+#   define J3D_ASSERT( condition, hs )
+#endif
+
+/**
+* @brief Asserts a condition.
+*
+* Checks if the condition is true. If the condition evaluates to false,
+* it triggers an assertion by calling the assert function (`pAssert`) from the
+* provided host services module (`hs`).
+*
+* @param condition - Condition to check.
+* @param hs - Pointer to host services with the assert function.
+*
+* @note This assertion is preserved in release builds.
+*
+* @usage J3D_ASSERTREL(x > 0, hs);
+*/
+#define J3D_ASSERTREL( condition, hs ) \
+    (void)((condition) || ((hs)->pAssert(#condition, J3D_FILE, __LINE__), 0))
+
+#ifdef __cplusplus
+#  define J3D_EXTERN_C_START extern "C" {
+#  define J3D_EXTERN_C_END }
+#else
+#  define J3D_EXTERN_C_START
+#  define J3D_EXTERN_C_END
+#endif // __cplusplus
+
+#endif // J3DCORE_H
