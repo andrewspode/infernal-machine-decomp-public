@@ -46,13 +46,14 @@ level scripts *(the 1.2 update was found in an archive of LucasArts' old FTP sit
 Compared function by function with 1.0 (addresses masked), 1.2 is a small set of source edits built with the same
 compilers, flags and libraries, and linked in the same order. No function was added or removed:
 
-- **14 functions with real code changes, all reconstructed:** six in `jonesConfig.c`, among them the key-name display rewritten around
+- **13 functions with real code changes, all reconstructed:** five in `jonesConfig.c`, among them the key-name display rewritten around
   `GetKeyNameTextA`, bounds checks in the store cart and cursor handling in the insert-CD dialog; two more credit
   entries in `JonesHud_DrawCredits`; a special case for the Marduk statue in `sithPlayerControls_ProcessGeneralMove`;
   and one function each in `sithCamera`, `sithWeapon`, `sithCogParse`, `sithCogFunctionThing`, `sithActor` and
   `sithWhip`.
 - **The rest follow from those edits:** shifted assert line numbers (21 functions), the build-date string (2), and
-  register or ordering differences in the edited files (15). In all, 52 functions in 13 source files differ.
+  register or ordering differences in the edited files (16, among them `jonesConfig_SetTextControl`, where only a
+  declaration moved). In all, 52 functions in 13 source files differ.
 - Most of the readme's fixes (Volodnikov, the level problems, the part sounds) have no counterpart in the executable
   and are presumably in the updated level scripts.
 

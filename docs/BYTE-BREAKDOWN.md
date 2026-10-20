@@ -44,7 +44,7 @@ Figures are for 1.2; both versions are below.
 
 ## Progress by area and file
 
-Generated from the development repository's builds (commit `19d15be3fd`). Function and code figures are [objdiff](https://github.com/encounter/objdiff)'s per-function scores (a guide); a **Matching** file is verified whole by the build (code, data and BSS identical after relocation).
+Generated from the development repository's builds (commit `319a6fc22c`). Function and code figures are [objdiff](https://github.com/encounter/objdiff)'s per-function scores (a guide); a **Matching** file is verified whole by the build (code, data and BSS identical after relocation).
 
 | | 1.2 (default build) | 1.0 |
 | --- | ---: | ---: |
